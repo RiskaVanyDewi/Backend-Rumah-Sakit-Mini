@@ -18,7 +18,7 @@ const historyRouter = require('./routes/history');
 const dashboardRouter = require('./routes/dashboard');
 
 const app = express();
-const port = Number(process.env.PORT || 3000);
+const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use('/appointments', appointmentsRoutes);
@@ -121,6 +121,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server berjalan di http://localhost:${port}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server berjalan di port ${PORT}`);
 });
