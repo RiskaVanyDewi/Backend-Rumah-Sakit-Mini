@@ -1,7 +1,12 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.getAllPatients = async (req, res) => {
-  const [rows] = await db.query(`
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  let baseQuery = `
       SELECT
         patients.id,
         patients.user_id,
@@ -17,9 +22,24 @@ exports.getAllPatients = async (req, res) => {
 
       JOIN users
       ON patients.user_id = users.id
-    `);
+    `;
 
-  res.json(rows);
+  const where = [];
+  const values = [];
+
+  if (req.query.search) {
+    where.push('(users.name LIKE ? OR users.email LIKE ?)');
+    values.push(`%${req.query.search}%`, `%${req.query.search}%`);
+  }
+
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+  const finalQuery = baseQuery + whereSql + ' ORDER BY patients.id DESC LIMIT ? OFFSET ?';
+  values.push(limit, offset);
+
+  const [rows] = await db.query(finalQuery, values);
+
+  res.json({ data: rows, page, limit });
 };
 
 exports.getMyPatientProfile = async (req, res) => {
@@ -55,14 +75,17 @@ exports.createPatient = async (req, res) => {
     blood_type
   } = req.body;
 
-  if (
-    !user_id ||
-    !gender ||
-    !birth_date
-  ) {
-    return res.status(400).json({
-      message: 'Field wajib diisi'
-    });
+  const requiredError = validateRequiredFields({
+    user_id,
+    gender,
+    birth_date,
+    address,
+    phone_number,
+    blood_type
+  });
+
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
   }
 
   const [result] = await db.query(
@@ -103,6 +126,18 @@ exports.updatePatient = async (req, res) => {
     phone_number,
     blood_type
   } = req.body;
+
+  const requiredError = validateRequiredFields({
+    gender,
+    birth_date,
+    address,
+    phone_number,
+    blood_type
+  });
+
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
 
   await db.query(
     `

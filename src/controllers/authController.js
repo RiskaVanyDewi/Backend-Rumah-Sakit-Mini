@@ -1,14 +1,24 @@
 const db = require('../config/database');
 const { hashPassword, verifyPassword, signJwt, JWT_EXPIRES_IN_SECONDS } = require('../utils/auth');
+const { validateRequiredFields, validateEmail, validatePassword } = require('../utils/validator');
 
 exports.register = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
+    const requiredError = validateRequiredFields({ name, email, password, role });
 
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({
-        message: 'Semua field wajib diisi.'
-      });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ message: emailError });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     if (!['admin','dokter','pasien','apoteker','kasir'].includes(role)) {
@@ -41,11 +51,15 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const requiredError = validateRequiredFields({ email, password });
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: 'Field email dan password wajib diisi.'
-      });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ message: emailError });
     }
 
     const [rows] = await db.query(
@@ -60,7 +74,7 @@ exports.login = async (req, res, next) => {
     }
 
     const user = rows[0];
-    const token = signJwt({
+    const token = signJwt({ //token
       sub: user.id,
       name: user.name,
       email: user.email,

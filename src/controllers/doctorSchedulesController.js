@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.getAllSchedules = async (req, res) => {
   const [rows] = await db.query(`
@@ -49,14 +50,9 @@ exports.createSchedule = async (req, res) => {
     end_time
   } = req.body;
 
-  if (
-    !doctor_id ||
-    !specialization ||
-    !practice_day
-  ) {
-    return res.status(400).json({
-      message: 'Field wajib diisi'
-    });
+  const requiredError = validateRequiredFields({ doctor_id, specialization, practice_day, start_time, end_time });
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
   }
 
   const [result] = await db.query(
@@ -95,6 +91,11 @@ exports.updateSchedule = async (req, res) => {
     end_time
   } = req.body;
 
+  const requiredError = validateRequiredFields({ specialization, practice_day, start_time, end_time });
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
+
   await db.query(
     `
       UPDATE doctor_schedules
@@ -104,7 +105,7 @@ exports.updateSchedule = async (req, res) => {
         start_time=?,
         end_time=?
       WHERE id=?
-      `,
+    `,
     [
       specialization,
       practice_day,

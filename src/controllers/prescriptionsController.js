@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.createPrescription = async (req, res, next) => {
   try {
@@ -9,14 +10,9 @@ exports.createPrescription = async (req, res, next) => {
       notes
     } = req.body;
 
-    if (
-      !patient_id ||
-      !medicine_id ||
-      !dosage
-    ) {
-      return res.status(400).json({
-        message: 'Semua field wajib diisi'
-      });
+    const requiredError = validateRequiredFields({ patient_id, medicine_id, dosage, notes });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
     }
 
     const [result] = await db.query(
@@ -94,6 +90,11 @@ exports.updatePrescription = async (req, res, next) => {
       dosage,
       notes
     } = req.body;
+
+    const requiredError = validateRequiredFields({ medicine_id, dosage, notes });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
 
     await db.query(
       `

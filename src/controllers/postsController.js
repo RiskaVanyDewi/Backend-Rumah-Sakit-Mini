@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.getAllPosts = async (req, res, next) => {
   try {
@@ -27,11 +28,10 @@ exports.getAllPosts = async (req, res, next) => {
 exports.createPost = async (req, res, next) => {
   try {
     const { title, content, user_id: userId } = req.body;
+    const requiredError = validateRequiredFields({ title, content, user_id: userId });
 
-    if (!title || !content || !userId) {
-      return res.status(400).json({
-        message: 'Field title, content, dan user_id wajib diisi.'
-      });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
     }
 
     const [users] = await db.query('SELECT id FROM users WHERE id = ?', [userId]);

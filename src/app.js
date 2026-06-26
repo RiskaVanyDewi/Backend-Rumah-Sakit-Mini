@@ -6,6 +6,7 @@ const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const postsRouter = require('./routes/posts');
 const {authenticateToken} = require('./middlewares/auth');
+const { activityLogger } = require('./middlewares/activityLogger');
 const appointmentsRoutes = require('./routes/appointments');
 const medicinesRoutes = require('./routes/medicines');
 const paymentsRoutes = require('./routes/payments');
@@ -21,6 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
+app.use(activityLogger);
 app.use('/appointments', appointmentsRoutes);
 app.use('/medicines', medicinesRoutes);
 app.use('/payments', paymentsRoutes);

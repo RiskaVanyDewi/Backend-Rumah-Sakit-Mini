@@ -1,7 +1,12 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.getAllDoctors = async (req, res) => {
-  const [rows] = await db.query(`
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  let baseQuery = `
       SELECT
         doctors.id,
         doctors.user_id,
@@ -15,9 +20,24 @@ exports.getAllDoctors = async (req, res) => {
 
       JOIN users
       ON doctors.user_id = users.id
-    `);
+    `;
 
-  res.json(rows);
+  const where = [];
+  const values = [];
+
+  if (req.query.search) {
+    where.push('(users.name LIKE ? OR doctors.specialization LIKE ?)');
+    values.push(`%${req.query.search}%`, `%${req.query.search}%`);
+  }
+
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+  const finalQuery = baseQuery + whereSql + ' ORDER BY doctors.id DESC LIMIT ? OFFSET ?';
+  values.push(limit, offset);
+
+  const [rows] = await db.query(finalQuery, values);
+
+  res.json({ data: rows, page, limit });
 };
 
 exports.getMyDoctorProfile = async (req, res) => {
@@ -49,13 +69,15 @@ exports.createDoctor = async (req, res) => {
     experience_years
   } = req.body;
 
-  if (
-    !user_id ||
-    !specialization
-  ) {
-    return res.status(400).json({
-      message: 'Field wajib diisi'
-    });
+  const requiredError = validateRequiredFields({
+    user_id,
+    specialization,
+    phone_number,
+    experience_years
+  });
+
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
   }
 
   const [result] = await db.query(
@@ -90,6 +112,16 @@ exports.updateDoctor = async (req, res) => {
     phone_number,
     experience_years
   } = req.body;
+
+  const requiredError = validateRequiredFields({
+    specialization,
+    phone_number,
+    experience_years
+  });
+
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
 
   await db.query(
     `

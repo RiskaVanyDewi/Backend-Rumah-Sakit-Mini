@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { validateRequiredFields } = require('../utils/validator');
 
 exports.getAllMedicalRecords = async (req, res) => {
   const [rows] = await db.query(`
@@ -58,14 +59,9 @@ exports.createMedicalRecord = async (req, res) => {
     notes
   } = req.body;
 
-  if (
-    !patient_id ||
-    !appointment_id ||
-    !diagnosis
-  ) {
-    return res.status(400).json({
-      message: 'Field wajib diisi'
-    });
+  const requiredError = validateRequiredFields({ patient_id, appointment_id, diagnosis, treatment, notes });
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
   }
 
   const [result] = await db.query(
@@ -105,6 +101,11 @@ exports.updateMedicalRecord = async (req, res) => {
     notes
   } = req.body;
 
+  const requiredError = validateRequiredFields({ diagnosis, treatment, notes });
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
+
   await db.query(
     `
       UPDATE medical_records
@@ -113,7 +114,7 @@ exports.updateMedicalRecord = async (req, res) => {
         treatment=?,
         notes=?
       WHERE id=?
-      `,
+    `,
     [
       diagnosis,
       treatment,

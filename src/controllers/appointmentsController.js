@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const { validateRequiredFields, validatePositive } = require('../utils/validator');
 
 exports.createAppointment = async (req, res) => {
   const {
@@ -9,14 +10,24 @@ exports.createAppointment = async (req, res) => {
     complaint
   } = req.body;
 
-  if (
-    !doctor_name ||
-    !visit_date ||
-    !queue_number
-  ) {
-    return res.status(400).json({
-      message: 'Semua field wajib diisi'
-    });
+  const requiredFields = {
+    doctor_name,
+    visit_date,
+    queue_number
+  };
+
+  if (req.authUser.role === 'admin') {
+    requiredFields.patient_id = patient_id;
+  }
+
+  const requiredError = validateRequiredFields(requiredFields);
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
+
+  const queueError = validatePositive('Queue number', queue_number);
+  if (queueError) {
+    return res.status(400).json({ message: queueError });
   }
 
   const [result] = await db.query(
@@ -41,7 +52,11 @@ exports.createAppointment = async (req, res) => {
 };
 
 exports.getAppointments = async (req, res) => {
-  let query = `
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  let baseQuery = `
       SELECT
         appointments.id,
         users.name AS patient_name,
@@ -56,16 +71,32 @@ exports.getAppointments = async (req, res) => {
       ON appointments.patient_id = users.id
     `;
 
-  let values = [];
+  const where = [];
+  const values = [];
 
   if (req.authUser.role === 'pasien') {
-    query += ' WHERE appointments.patient_id = ?';
+    where.push('appointments.patient_id = ?');
     values.push(req.authUser.sub);
   }
 
-  const [rows] = await db.query(query, values);
+  if (req.query.doctor_name) {
+    where.push('appointments.doctor_name LIKE ?');
+    values.push(`%${req.query.doctor_name}%`);
+  }
 
-  res.json(rows);
+  if (req.query.search) {
+    where.push('(users.name LIKE ? OR appointments.doctor_name LIKE ? OR appointments.complaint LIKE ?)');
+    values.push(`%${req.query.search}%`, `%${req.query.search}%`, `%${req.query.search}%`);
+  }
+
+  const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+  const finalQuery = baseQuery + whereSql + ' ORDER BY appointments.id DESC LIMIT ? OFFSET ?';
+  values.push(limit, offset);
+
+  const [rows] = await db.query(finalQuery, values);
+
+  res.json({ data: rows, page, limit });
 };
 
 exports.updateAppointment = async (req, res) => {
@@ -76,6 +107,16 @@ exports.updateAppointment = async (req, res) => {
     queue_number,
     complaint
   } = req.body;
+
+  const requiredError = validateRequiredFields({ doctor_name, visit_date, queue_number });
+  if (requiredError) {
+    return res.status(400).json({ message: requiredError });
+  }
+
+  const queueError = validatePositive('Queue number', queue_number);
+  if (queueError) {
+    return res.status(400).json({ message: queueError });
+  }
 
   await db.query(
     `

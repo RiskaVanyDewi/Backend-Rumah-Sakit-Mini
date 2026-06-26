@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const { hashPassword } = require('../utils/auth');
+const { validateRequiredFields, validateEmail, validatePassword } = require('../utils/validator');
 
 exports.getAllUsers = async (req, res, next) => {
   try {
@@ -19,17 +20,20 @@ exports.getAllUsers = async (req, res, next) => {
 exports.createUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+    const requiredError = validateRequiredFields({ name, email, password });
 
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: 'Field name, email, dan password wajib diisi.'
-      });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({
-        message: 'Password minimal 8 karakter.'
-      });
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ message: emailError });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const passwordHash = hashPassword(password);
@@ -70,20 +74,23 @@ exports.updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, email, password } = req.body;
+    const requiredError = validateRequiredFields({ name, email });
 
-    if (!name || !email) {
-      return res.status(400).json({
-        message: 'Field name dan email wajib diisi.'
-      });
+    if (requiredError) {
+      return res.status(400).json({ message: requiredError });
+    }
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ message: emailError });
     }
 
     let result;
 
     if (password !== undefined) {
-      if (!password || password.length < 8) {
-        return res.status(400).json({
-          message: 'Password minimal 8 karakter.'
-        });
+      const passwordError = validatePassword(password);
+      if (passwordError) {
+        return res.status(400).json({ message: passwordError });
       }
 
       const passwordHash = hashPassword(password);
